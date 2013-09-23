@@ -20,13 +20,11 @@ uint space = 0;
 /** start the sequencer
  */
 void sequencer () {
-  printf("in sequencer\n");
   bool testPriority = true;
   if (space == 0) {
     space = global::inter->putAll();
   }
   int still = space;
-//  printf("in sequencer, still: %d, maxPerCall: %d\n", still, maxPerCall);
   if (still > maxPerCall) still = maxPerCall;
   while (still) {
     if (canGetUrl(&testPriority)) {
@@ -41,16 +39,15 @@ void sequencer () {
  * here is defined how priorities are handled
  */
 static bool canGetUrl (bool *testPriority) {
-  //printf("in canGetUrl.");
   url *u;
   if (global::readPriorityWait) {
-    printf("in sequencer and global::readPriorityWait\n");
+    //printf("in sequencer and global::readPriorityWait\n");
     global::readPriorityWait--;
     u = global::URLsPriorityWait->get();
     global::namedSiteList[u->hostHashCode()].putPriorityUrlWait(u);
     return true;
   } else if (*testPriority && (u=global::URLsPriority->tryGet()) != NULL) {
-    printf("in sequencer and URLsPriority->tryGet() not NULL\n");
+    //printf("in sequencer and URLsPriority->tryGet() not NULL\n");
     // We've got one url (priority)
     global::namedSiteList[u->hostHashCode()].putPriorityUrl(u);
     return true;
@@ -58,18 +55,18 @@ static bool canGetUrl (bool *testPriority) {
     *testPriority = false;
     // Try to get an ordinary url
     if (global::readWait) {
-      printf("in sequencer and readWait\n");
+      //printf("in sequencer and readWait\n");
       global::readWait--;
       u = global::URLsDiskWait->get();
       global::namedSiteList[u->hostHashCode()].putUrlWait(u);
       return true;
     } else {
-      printf("in sequencer canGetUrl and URLSDisk\n");
       u = global::URLsDisk->tryGet();
+      //printf("in sequencer and URLsDisk and u: ");
       if (u != NULL) {
-        //printf("u:");
-        //u->print();
         global::namedSiteList[u->hostHashCode()].putUrl(u);
+        //u->print();
+        //printf("u->hostHashCode: %ld\n", u->hostHashCode());
         return true;
       } else {
         return false;

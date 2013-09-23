@@ -26,21 +26,21 @@
 // functions used for the 2 types of sites
 /////////////////////////////////////////////////////////
 
-static struct sockaddr_in6 stataddr;
+static struct sockaddr_in stataddr;
 
 void initSite () {
-  stataddr.sin6_family = AF_INET6;
+  stataddr.sin_family = AF_INET;
 }
 
 /** connect to this addr using connection conn 
  * return the state of the socket
  */
-static char getFds (Connexion *conn, struct in6_addr *addr, uint port) {
-  memcpy (&stataddr.sin6_addr,
+static char getFds (Connexion *conn, struct in_addr *addr, uint port) {
+  memcpy (&stataddr.sin_addr,
           addr,
-          sizeof (struct in6_addr));
-  stataddr.sin6_port = htons(port);
-  int fd = socket(AF_INET6, SOCK_STREAM, 0);
+          sizeof (struct in_addr));
+  stataddr.sin_port = htons(port);
+  int fd = socket(AF_INET, SOCK_STREAM, 0);
   if (fd < 0)
     return emptyC;
   else
@@ -48,13 +48,13 @@ static char getFds (Connexion *conn, struct in6_addr *addr, uint port) {
   conn->socket = fd;
   for (;;) {
     fcntl(fd, F_SETFL, O_NONBLOCK);
-    struct sockaddr_in6 *theaddr;
+    struct sockaddr_in *theaddr;
     if (global::proxyAddr != NULL)
       theaddr = global::proxyAddr;
     else
       theaddr = &stataddr;
     if (connect(fd, (struct sockaddr*) theaddr,
-                sizeof (struct sockaddr_in6)) == 0) {
+                sizeof (struct sockaddr_in)) == 0) {
       // success
       return writeC;
     } else if (errno == EINPROGRESS) {
@@ -110,17 +110,10 @@ short NamedSite::fifoLength() {
 
 /* Put an url in the fifo if their are not too many */
 void NamedSite::putGenericUrl(url *u, int limit, bool prio) {
-  //printf("in putGenericUrl, nburls: %d, max-limit: %d\n", nburls, (maxUrlsBySite-limit));
-  //printf("in putG, dnsState: %d, waitDns: %d, doneDns: %d, errorDns: %d, noConnDns: %d\n", dnsState, waitDns, doneDns, errorDns, noConnDns);
-  //printf("in putG, port: %d, u->getPort(): %d, global::now: %d, dnsTimeout: %d\n", port, u->getPort(), global::now, dnsTimeout);
-  //printf("isInFifo: %d\n", isInFifo);
-  
-
   if (nburls > maxUrlsBySite-limit) {
 	// Already enough Urls in memory for this Site
     // first check if it can already be forgotten
     if (!strcmp(name, u->getHost())) {
-      //printf("!strcmp(name, u->getHost())\n");
       if (dnsState == errorDns) {
         nburls++;
         forgetUrl(u, noDNS);
@@ -153,10 +146,6 @@ void NamedSite::putGenericUrl(url *u, int limit, bool prio) {
         || port != u->getPort()
         || global::now > dnsTimeout) {
       // dns not done or other site
-      //printf("in putGenericUrl. the url of u:");
-      //u->print();
-      //printf(" NamedSite->name: %s, NamedSite->port: %d\n", name, port);
-
       putInFifo(u);
       addNamedUrl();
       // Put Site in fifo if not yet in
@@ -180,12 +169,8 @@ void NamedSite::putGenericUrl(url *u, int limit, bool prio) {
 /** Init a new dns query
  */
 void NamedSite::newQuery () {
-  printf("in NamedSite::newQuery()\n");
-  
   // Update our stats
   newId();
-  printf("after newId()\n");
-
   if (global::proxyAddr != NULL) {
     // we use a proxy, no need to get the sockaddr
     // give anything for going on
@@ -195,9 +180,8 @@ void NamedSite::newQuery () {
     dnsOK();
   } else if (isdigit(name[0])) {
     // the name already in numbers-and-dots notation
-    printf("in newQuery. and isdigit(name[0]), name: %s\n", name);
 	siteSeen();
-	if (inet_pton(AF_INET6, name, addr.s6_addr)) {
+	if (inet_aton(name, &addr)) {
 	  // Yes, it is in numbers-and-dots notation
 	  siteDNS();
 	  // Get the robots.txt
@@ -211,11 +195,10 @@ void NamedSite::newQuery () {
     // submit an adns query
     global::nbDnsCalls++;
     adns_query quer = NULL;
-    printf("in newQuery and name: %s\n", name);
     adns_submit(global::ads, name,
-                (adns_rrtype) adns_r_aaaa,
+                (adns_rrtype) adns_r_addr,
                 (adns_queryflags) 0,
-                  this, &quer);
+                this, &quer);
   }
 }
 
@@ -223,57 +206,51 @@ void NamedSite::newQuery () {
  * assert there is a freeConn
  */
 void NamedSite::dnsAns (adns_answer *ans) {
-    if (ans->status == adns_s_prohibitedcname) {
-        if (cname == NULL && ans->cname != NULL){
-            // try to find ip for cname of cname
-            //printf("cname == NULL\n");
-            //printf("ans->cname: %s\n", ans->cname);
-            //printf("ans->owner: %s\n", ans->owner);
-            //printf("ans.addr: %s\n", inet_ntoa(ans->rrs.addr->addr.inet.sin6_addr));
-            cname = newString(ans->cname);
-            //printf("after cname = newString(ans->cname)\n");
-            global::nbDnsCalls++;
-            adns_query quer = NULL;
-            adns_submit(global::ads, cname,
-                      (adns_rrtype) adns_r_aaaa,
-                      (adns_queryflags) 0,
-                        this, &quer);
-        } else {
-            // dns chains too long => dns error
-            // cf nslookup or host for more information
-            siteSeen();
-            //printf("cname != NULL\n");
-            delete [] cname; cname = NULL;
-            dnsState = errorDns;
-            dnsErr();
-        }
-  } else {
-    siteSeen();
-    if (cname != NULL) {delete [] cname; cname = NULL; }
-    if (ans->status != adns_s_ok) {
-    // No addr inet
-        //printf("ans->status != adns_s_ok\n");
-        dnsState = errorDns;
-        dnsErr();
+  if (ans->status == adns_s_prohibitedcname) {
+    //printf("ans->status == adns_s_prohibitedcname == %d\n", ans->status);
+    if (cname == NULL && ans->cname != NULL) {
+      // try to find ip for cname of cname
+      //printf("cname == NULL\n");
+      //printf("ans->cname: %s\n", ans->cname);
+      //printf("ans->owner: %s\n", ans->owner);
+      //printf("ans.addr: %s\n", inet_ntoa(ans->rrs.addr->addr.inet.sin_addr));
+      cname = newString(ans->cname);
+      //printf("after cname = newString(ans->cname)\n");
+      global::nbDnsCalls++;
+      adns_query quer = NULL;
+      adns_submit(global::ads, cname,
+                  (adns_rrtype) adns_r_addr,
+                  (adns_queryflags) 0,
+                  this, &quer);
     } else {
-        siteDNS();
-        //printf("ans->status == adns_s_ok == %d\n", ans->status);
-        //printf("ans->cname: %s\n", ans->cname);
-        //printf("site.name: %s\n", name);
-        //printf("ans->owner: %s\n", ans->owner);
-        // compute the new addr
-        char buf[INET6_ADDRSTRLEN];
-        //inet_ntop(AF_INET6, ans->rrs.in6addr, buf, INET6_ADDRSTRLEN);
-        //printf("ans->rrs.in6addr ip: %s\n", buf);
-        
-        memcpy(&addr, ans->rrs.in6addr, sizeof(struct in6_addr));
-        //memset(buf, '0', sizeof(buf));
-        inet_ntop(AF_INET6, addr.s6_addr, buf, sizeof(buf));
-        //printf("addr.s6_addr: %s\n", buf);
-     }
+      // dns chains too long => dns error
+      // cf nslookup or host for more information
+      siteSeen();
+      //printf("cname != NULL\n");
+      delete [] cname; cname = NULL;
+      dnsState = errorDns;
+      dnsErr();
     }
-    // Get the robots.txt
-    dnsOK();
+  } else {
+    //printf(" ans->status: %d\n", ans->status);
+    siteSeen();
+    if (cname != NULL) { delete [] cname; cname = NULL; }
+    if (ans->status != adns_s_ok) {
+      // No addr inet
+      //printf("ans->status != adns_s_ok\n");
+      dnsState = errorDns;
+      dnsErr();
+    } else {
+      siteDNS();
+      //printf("ans->status == adns_s_ok == %d\n", ans->status);
+      // compute the new addr
+      memcpy (&addr,
+              &ans->rrs.addr->addr.inet.sin_addr,
+              sizeof (struct in_addr));
+      // Get the robots.txt
+      dnsOK();
+    }
+  }
 }
 
 /** we've got a good dns answer
@@ -281,11 +258,8 @@ void NamedSite::dnsAns (adns_answer *ans) {
  * assert there is a freeConn
  */
 void NamedSite::dnsOK () {
-  //printf("in dnsOK()\n");
   Connexion *conn = global::freeConns->get();
   char res = getFds(conn, &addr, port);
-  //printf("in dnsOK res: %d, emptyC: %d, connectingC: %d writeC: %d\n", res, emptyC, connectingC, writeC);
-
   if (res != emptyC) {
     conn->timeout = timeoutPage;
     if (global::proxyAddr != NULL) {
@@ -297,19 +271,16 @@ void NamedSite::dnsOK () {
       conn->request.addString(tmp);
       conn->request.addString("/robots.txt HTTP/1.0\r\nHost: ");
     } else {
-      //printf("in dnsOK in res!=emptyc in global::proxyAddr==NULL\n");
       // direct connection
       conn->request.addString("GET /robots.txt HTTP/1.0\r\nHost: ");
     }
     conn->request.addString(name);
     conn->request.addString(global::headersRobots);
-    //printf("conn->request: %s\n", conn->request.getString());
     conn->parser = new robots(this, conn);
     conn->pos = 0;
     conn->err = success;
     conn->state = res;
   } else {
-    //printf("in dnsOk in res==emptyC\n");
     // Unable to get a socket
     global::freeConns->put(conn);
     dnsState = noConnDns;
@@ -358,8 +329,6 @@ bool NamedSite::testRobots(char *file) {
 
 /** Delete the old identity of the site */
 void NamedSite::newId () {
-  printf("in newId()\n");
-
   // ip expires or new name or just new port
   // Change the identity of this site
 #ifndef NDEBUG
@@ -368,12 +337,6 @@ void NamedSite::newId () {
   }
 #endif // NDEBUG
   url *u = fifo[outFifo];
-  if (u == NULL){
-    return;
-  }
-  printf("in newId(). u address: %d u->getHost: %s u->getPort: %d\n", u, u->getHost(), u->getPort());
-  printf("fifo len: %d outFifo: %d inFifo: %d\n", fifoLength(), outFifo, inFifo);
-  //printf("u->getHost: %s\n", u->getHost());
   strcpy(name, u->getHost());
   port = u->getPort();
   dnsTimeout = global::now + dnsValidTime;
@@ -392,7 +355,7 @@ void NamedSite::robotsResult (FetchError res) {
     if (global::proxyAddr == NULL) {
       ipHash=0;
       char *s = (char *) &addr;
-      for (uint i=0; i<sizeof(struct in6_addr); i++) {
+      for (uint i=0; i<sizeof(struct in_addr); i++) {
         ipHash = ipHash*31 + s[i];
       }
     } else {
@@ -433,7 +396,7 @@ void NamedSite::robotsResult (FetchError res) {
 void NamedSite::transfer (url *u) {
   if (testRobots(u->getFile())) {
     if (global::proxyAddr == NULL) {
-      memcpy (&u->addr, &addr, sizeof (struct in6_addr));
+      memcpy (&u->addr, &addr, sizeof (struct in_addr));
     }
     global::IPSiteList[ipHash].putUrl(u);
   } else {

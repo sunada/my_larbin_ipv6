@@ -22,7 +22,6 @@
  * work inside the main thread
  */
 void fetchOpen () {
-  //printf("in fetchOpen\n");
   static time_t next_call = 0;
   if (global::now < next_call) { // too early to come back
     return;
@@ -32,9 +31,7 @@ void fetchOpen () {
     IPSite *s = global::okSites->tryGet();
     if (s == NULL) {
       cont = 0;
-      //printf("in fetchOpen and s == NULL the cont = %d\n", cont);
     } else {
-      //printf("in fetchOpen and before next_call = s->fetch\n");
       next_call = s->fetch();
       cont = (next_call == 0);
     }
@@ -53,9 +50,9 @@ void fetchDns () {
     if (site == NULL) {
       break;
     } else {
-      printf("before newQuery\n");
+      //printf("before newQuery\n");
       site->newQuery();
-      printf("after newQuery\n");
+      //printf("after newQuery\n");
     }
   }
 
@@ -64,20 +61,18 @@ void fetchDns () {
     NamedSite *site;
     adns_query quer = NULL;
     adns_answer *ans;
-
     int res = adns_check(global::ads, &quer, &ans, (void**)&site);
-
     if (res == ESRCH || res == EAGAIN) {
       // No more query or no more answers
       break;
     }
     global::nbDnsCalls--;
-
-    //printf("in fetchDns(): ans->cname: %s\n", ans->cname);
-    //printf("in fetchDns(): ans->owner: %s\n", ans->owner);
-    //printf("before dnsAns\n");
+    printf("ans->cname: %s\n", ans->cname);
+    printf("ans->owner: %s\n", ans->owner);
+    //printf("ans.addr: %s\n", inet_ntoa(ans->rrs.addr->addr.inet.sin_addr));
+    printf("before dnsAns\n");
     site->dnsAns(ans);
-    //printf("after dnsAnds\n\n");
+    printf("after dnsAnds\n\n");
     free(ans); // ans has been allocated with malloc
   }
 }

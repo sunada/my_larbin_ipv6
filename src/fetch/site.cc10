@@ -358,8 +358,6 @@ bool NamedSite::testRobots(char *file) {
 
 /** Delete the old identity of the site */
 void NamedSite::newId () {
-  printf("in newId()\n");
-
   // ip expires or new name or just new port
   // Change the identity of this site
 #ifndef NDEBUG
