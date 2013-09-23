@@ -42,4 +42,11 @@ sequencer.o: ../fetch/specbuf.h ../fetch/hashTable.h ../utils/hashDup.h
 sequencer.o: ../utils/PersistentFifo.h ../utils/text.h ../utils/connexion.h
 sequencer.o: ../utils/mypthread.h ../utils/ConstantSizedFifo.h
 sequencer.o: ../utils/SyncFifo.h ../fetch/checker.h
+site.o: ../options.h ../config.h ../types.h ../utils/Fifo.h ../utils/debug.h
+site.o: ../utils/text.h ../utils/string.h ../utils/connexion.h
+site.o: ../interf/output.h ../global.h ../fetch/file.h ../utils/url.h
+site.o: ../utils/Vector.h ../fetch/site.h ../fetch/specbuf.h
+site.o: ../fetch/hashTable.h ../utils/hashDup.h ../utils/PersistentFifo.h
+site.o: ../utils/mypthread.h ../utils/ConstantSizedFifo.h ../utils/SyncFifo.h
+site.o: ../fetch/checker.h
 specbuf.o: ../fetch/defaultspecbuf.cc

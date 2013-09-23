@@ -371,7 +371,8 @@ void NamedSite::newId () {
   if (u == NULL){
     return;
   }
-  printf("in newId(). u address: %d u->getHost: %s u->getPort: %d\n", u, u->getHost(), u->getPort());
+  printf("in newId(). u address: %d ", u);
+  printf("u->getHost: %s u->getPort: %d\n", u->getHost(), u->getPort());
   printf("fifo len: %d outFifo: %d inFifo: %d\n", fifoLength(), outFifo, inFifo);
   //printf("u->getHost: %s\n", u->getHost());
   strcpy(name, u->getHost());

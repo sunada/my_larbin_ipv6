@@ -53,9 +53,9 @@ void fetchDns () {
     if (site == NULL) {
       break;
     } else {
-      printf("before newQuery\n");
+      printf("before newQuery. site->name: %s site->port: %d\n", site->name, site->port);
       site->newQuery();
-      printf("after newQuery\n");
+      printf("after newQuery\n\n");
     }
   }
 
