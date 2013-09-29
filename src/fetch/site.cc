@@ -363,18 +363,20 @@ void NamedSite::newId () {
   // ip expires or new name or just new port
   // Change the identity of this site
 #ifndef NDEBUG
-  if (name[0] == 0) {
+  printf("in ifndef NDEBUG\n");
+  if (name != NULL && name[0] == 0) {
     addsite();
   }
 #endif // NDEBUG
+  printf("fifo len: %d outFifo: %d inFifo: %d\n", fifoLength(), outFifo, inFifo);
   url *u = fifo[outFifo];
-  if (u == NULL){
+  //if (u == NULL || u->getHost() == NULL || u->getPort() == NULL){
+  if (fifoLength() == 0 || u == NULL || u->getHost() == NULL){
     return;
   }
-  printf("in newId(). u address: %d ", u);
-  printf("u->getHost: %s u->getPort: %d\n", u->getHost(), u->getPort());
-  printf("fifo len: %d outFifo: %d inFifo: %d\n", fifoLength(), outFifo, inFifo);
-  //printf("u->getHost: %s\n", u->getHost());
+  printf("in newId(). u address: %d \n", u);
+  printf("u->getHost: %s \n", u->getHost());
+  printf("u->getPort: %d\n", u->getPort());
   strcpy(name, u->getHost());
   port = u->getPort();
   dnsTimeout = global::now + dnsValidTime;
